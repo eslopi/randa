@@ -1,13 +1,191 @@
-<!DOCTYPE html>
-<html lang="ar">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تطبيق أماكن السهر والترفيه</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Entertainment and Nightlife Map</title>
+    <script src="https://unpkg.com/react/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"></link>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+        .map-container {
+            height: 400px;
+        }
+    </style>
 </head>
 <body>
     <div id="root"></div>
-    <script src="index.js" type="module"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAzNFMx0l3x-1qSB7zYEHJwasBnkPOfpg0",
+            authDomain: "ms-mv-71de8.firebaseapp.com",
+            projectId: "ms-mv-71de8",
+            storageBucket: "ms-mv-71de8.appspot.com",
+            messagingSenderId: "11803494011",
+            appId: "1:11803494011:web:313992c0215928cb3b44de",
+            measurementId: "G-XKKEK82ZPD"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+    </script>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function App() {
+            const [places, setPlaces] = useState([]);
+            const [selectedPlace, setSelectedPlace] = useState(null);
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [showAdminPanel, setShowAdminPanel] = useState(false);
+            const [newPlace, setNewPlace] = useState({ name: '', description: '', coordinates: [0, 0] });
+
+            useEffect(() => {
+                const fetchPlaces = async () => {
+                    const placesCollection = await db.collection('places').get();
+                    setPlaces(placesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                };
+
+                fetchPlaces();
+
+                mapboxgl.accessToken = 'pk.eyJ1IjoiZXNsb3BpIiwiYSI6ImNtMWV6OHI3eDFoeGMybHF6bmR0OXcwbWIifQ.PgBVsl5bPmcOQ_47NDK10A';
+                const map = new mapboxgl.Map({
+                    container: 'map',
+                    style: 'mapbox://styles/mapbox/streets-v11',
+                    center: [12.4924, 41.8902], // Initial map center
+                    zoom: 2
+                });
+
+                places.forEach(place => {
+                    const marker = new mapboxgl.Marker()
+                        .setLngLat(place.coordinates)
+                        .setPopup(new mapboxgl.Popup().setHTML(`<h3>${place.name}</h3><p>${place.description}</p>`))
+                        .addTo(map);
+
+                    marker.getElement().addEventListener('click', () => {
+                        setSelectedPlace(place);
+                    });
+                });
+
+                return () => map.remove();
+            }, [places]);
+
+            const handleAdminLogin = () => {
+                const password = prompt("Enter admin password:");
+                if (password === "admin123") {
+                    setIsAdmin(true);
+                    setShowAdminPanel(true);
+                } else {
+                    alert("Incorrect password!");
+                }
+            };
+
+            const handleAddPlace = async () => {
+                await db.collection('places').add(newPlace);
+                setNewPlace({ name: '', description: '', coordinates: [0, 0] });
+                setShowAdminPanel(false);
+                window.location.reload();
+            };
+
+            return (
+                <div className="container mx-auto p-4">
+                    <div className="flex justify-between items-center mb-4">
+                        <h1 className="text-3xl font-bold">Entertainment and Nightlife Map</h1>
+                        <button onClick={handleAdminLogin} className="bg-gray-800 text-white px-4 py-2 rounded-lg">
+                            <i className="fas fa-user-shield"></i> Admin Login
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div id="map" className="map-container bg-gray-200"></div>
+                        <div className="place-info">
+                            {selectedPlace ? (
+                                <div className="p-4 border rounded-lg shadow-lg">
+                                    <img src={selectedPlace.image} alt={`Image of ${selectedPlace.name}`} className="w-full h-48 object-cover mb-4 rounded-lg" />
+                                    <h2 className="text-2xl font-bold mb-2">{selectedPlace.name}</h2>
+                                    <p className="mb-4">{selectedPlace.description}</p>
+                                    <p className="mb-4">Visitors: {selectedPlace.visitors}</p>
+                                    <div className="flex space-x-4">
+                                        <button className="bg-blue-500 text-white px-4 py-2 rounded-lg">Chat with Visitors</button>
+                                        <button className="bg-green-500 text-white px-4 py-2 rounded-lg">Chat with Bot</button>
+                                    </div>
+                                    <div className="mt-4">
+                                        <label className="block mb-2">Rate this place:</label>
+                                        <div className="flex space-x-2">
+                                            <i className="fas fa-star text-yellow-500"></i>
+                                            <i className="fas fa-star text-yellow-500"></i>
+                                            <i className="fas fa-star text-yellow-500"></i>
+                                            <i className="fas fa-star text-yellow-500"></i>
+                                            <i className="fas fa-star text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-center text-gray-500">Select a place from the map to see details</p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="mt-8">
+                        <h2 className="text-2xl font-bold mb-4">Places List</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {places.map(place => (
+                                <div key={place.id} className="p-4 border rounded-lg shadow-lg cursor-pointer" onClick={() => setSelectedPlace(place)}>
+                                    <img src={place.image} alt={`Image of ${place.name}`} className="w-full h-32 object-cover mb-4 rounded-lg" />
+                                    <h3 className="text-xl font-bold mb-2">{place.name}</h3>
+                                    <p className="text-gray-700">{place.description}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    {showAdminPanel && (
+                        <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center">
+                            <div className="bg-white p-8 rounded-lg shadow-lg w-96">
+                                <h2 className="text-2xl font-bold mb-4">Add New Place</h2>
+                                <div className="mb-4">
+                                    <label className="block mb-2">Name</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-2 border rounded-lg"
+                                        value={newPlace.name}
+                                        onChange={(e) => setNewPlace({ ...newPlace, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block mb-2">Description</label>
+                                    <textarea
+                                        className="w-full p-2 border rounded-lg"
+                                        value={newPlace.description}
+                                        onChange={(e) => setNewPlace({ ...newPlace, description: e.target.value })}
+                                    ></textarea>
+                                </div>
+                                <div className="mb-4">
+                                    <label className="block mb-2">Coordinates</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-2 border rounded-lg"
+                                        placeholder="Longitude, Latitude"
+                                        value={newPlace.coordinates.join(', ')}
+                                        onChange={(e) => setNewPlace({ ...newPlace, coordinates: e.target.value.split(',').map(Number) })}
+                                    />
+                                </div>
+                                <div className="flex justify-end space-x-4">
+                                    <button onClick={() => setShowAdminPanel(false)} className="bg-gray-500 text-white px-4 py-2 rounded-lg">Cancel</button>
+                                    <button onClick={handleAddPlace} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Add Place</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
 </body>
 </html>
